@@ -67,7 +67,41 @@ class ImageProcessor:
         else:
             self.face_detector = FaceDetector(device=device)
 
-    def affine_transform(self, image: torch.Tensor) -> np.ndarray:
+    def calculate_face_angle(self, landmarks):
+        """
+        计算面部yaw角度（左右转头角度）
+        返回角度值，0度为正面，正值为向右转，负值为向左转
+        """
+        # 使用鼻子、左眼、右眼的关键点来计算角度
+        # 获取关键点
+        left_eye = np.mean(landmarks[[43, 48, 49, 51, 50]], axis=0)  # 左眼中心
+        right_eye = np.mean(landmarks[101:106], axis=0)  # 右眼中心
+        nose_tip = landmarks[86]  # 鼻尖
+
+        # 计算两眼中心点
+        eye_center = (left_eye + right_eye) / 2
+
+        # 计算鼻子相对于眼部中心的水平偏移
+        horizontal_offset = nose_tip[0] - eye_center[0]
+
+        # 计算两眼之间的距离
+        eye_distance = np.linalg.norm(right_eye - left_eye)
+
+        # 计算角度 (简化的估算)
+        # 正面时鼻子应该在两眼中心，偏移越大角度越大
+        angle = np.arctan2(horizontal_offset, eye_distance) * 180 / np.pi
+
+        return angle
+
+    def is_front_face(self, landmarks, angle_threshold=15):
+        """
+        判断是否为正面人脸
+        angle_threshold: 角度阈值，默认15度
+        """
+        angle = self.calculate_face_angle(landmarks)
+        return abs(angle) <= angle_threshold
+
+    def affine_transform(self, image: torch.Tensor, check_front_face=True, angle_threshold=15) -> np.ndarray:
         if self.face_detector is None:
             raise NotImplementedError("Using the CPU for face detection is not supported")
         bbox, landmark_2d_106 = self.face_detector(image)
@@ -79,6 +113,13 @@ class ImageProcessor:
             self.previous_landmarks = landmark_2d_106
             bbox = True
             print("Face detected")
+            if check_front_face:
+                bbox = self.is_front_face(
+                    landmarks=landmark_2d_106, angle_threshold=angle_threshold
+                )
+                if not bbox:
+                    angle = self.calculate_face_angle(landmarks=landmark_2d_106)
+                    print(f"Side face detected, angle: {angle:.1f}, ship inference..")
 
         pt_left_eye = np.mean(landmark_2d_106[[43, 48, 49, 51, 50]], axis=0)  # left eyebrow center
         pt_right_eye = np.mean(landmark_2d_106[101:106], axis=0)  # right eyebrow center

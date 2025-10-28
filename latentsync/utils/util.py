@@ -43,15 +43,28 @@ def read_json(filepath: str):
     return json_dict
 
 
+def read_video_with_decord(video_path: str, change_fps=True):
+    if change_fps:
+        temp_dir = "temp"
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        os.makedirs(temp_dir, exist_ok=True)
+        command = f"ffmpeg -loglevel error -y -nostdin -i {video_path} -r 25 -crf 18 {os.path.join(temp_dir, 'video.mp4')}"
+        subprocess.run(command, shell=True)
+        target_video_path = os.path.join(temp_dir, "video.mp4")
+    else:
+        target_video_path = video_path
+
+    return VideoReader(target_video_path)
+
+
 def read_video(video_path: str, change_fps=True, use_decord=True):
     if change_fps:
         temp_dir = "temp"
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
-        command = (
-            f"ffmpeg -loglevel error -y -nostdin -i {video_path} -r 25 -crf 18 {os.path.join(temp_dir, 'video.mp4')}"
-        )
+        command = f"ffmpeg -loglevel error -y -nostdin -i {video_path} -r 25 -crf 18 {os.path.join(temp_dir, 'video.mp4')}"
         subprocess.run(command, shell=True)
         target_video_path = os.path.join(temp_dir, "video.mp4")
     else:
@@ -125,9 +138,23 @@ def write_video(video_output_path: str, video_frames: np.ndarray, fps: int):
             writer.append_data(video_frame)
 
 
+def write_video_stream(video_output_path: str, fps: int):
+    """Create a video writer that supports streaming writing"""
+    return imageio.get_writer(
+        video_output_path,
+        fps=fps,
+        codec="libx264",
+        macro_block_size=None,
+        ffmpeg_params=["-crf", "13"],
+        ffmpeg_log_level="error",
+    )
+
+
 def write_video_cv2(video_output_path: str, video_frames: np.ndarray, fps: int):
     height, width = video_frames[0].shape[:2]
-    out = cv2.VideoWriter(video_output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    out = cv2.VideoWriter(
+        video_output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    )
     # out = cv2.VideoWriter(video_output_path, cv2.VideoWriter_fourcc(*"vp09"), fps, (width, height))
     for frame in video_frames:
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
@@ -162,7 +189,9 @@ def check_video_fps(video_path: str):
     cam = cv2.VideoCapture(video_path)
     fps = cam.get(cv2.CAP_PROP_FPS)
     if fps != 25:
-        raise ValueError(f"Video FPS is not 25, it is {fps}. Please convert the video to 25 FPS.")
+        raise ValueError(
+            f"Video FPS is not 25, it is {fps}. Please convert the video to 25 FPS."
+        )
 
 
 def one_step_sampling(ddim_scheduler, pred_noise, timesteps, x_t):
@@ -175,7 +204,9 @@ def one_step_sampling(ddim_scheduler, pred_noise, timesteps, x_t):
     if ddim_scheduler.config.prediction_type == "epsilon":
         beta_prod_t = beta_prod_t[:, None, None, None, None]
         alpha_prod_t = alpha_prod_t[:, None, None, None, None]
-        pred_original_sample = (x_t - beta_prod_t ** (0.5) * pred_noise) / alpha_prod_t ** (0.5)
+        pred_original_sample = (
+            x_t - beta_prod_t ** (0.5) * pred_noise
+        ) / alpha_prod_t ** (0.5)
     else:
         raise NotImplementedError("This prediction type is not implemented yet")
 
@@ -269,12 +300,18 @@ def count_video_time(video_path):
 
 def check_ffmpeg_installed():
     # Run the ffmpeg command with the -version argument to check if it's installed
-    result = subprocess.run("ffmpeg -version", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    result = subprocess.run(
+        "ffmpeg -version", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
+    )
     if not result.returncode == 0:
-        raise FileNotFoundError("ffmpeg not found, please install it by:\n    $ conda install -c conda-forge ffmpeg")
+        raise FileNotFoundError(
+            "ffmpeg not found, please install it by:\n    $ conda install -c conda-forge ffmpeg"
+        )
 
 
-def check_model_and_download(ckpt_path: str, huggingface_model_id: str = "ByteDance/LatentSync-1.5"):
+def check_model_and_download(
+    ckpt_path: str, huggingface_model_id: str = "ByteDance/LatentSync-1.5"
+):
     if not os.path.exists(ckpt_path):
         ckpt_path_obj = Path(ckpt_path)
         download_cmd = f"huggingface-cli download {huggingface_model_id} {Path(*ckpt_path_obj.parts[1:])} --local-dir {Path(ckpt_path_obj.parts[0])}"

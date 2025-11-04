@@ -23,10 +23,17 @@ from .affine_transform import AlignRestore
 from .face_detector import FaceDetector
 
 
-def load_fixed_mask(resolution: int, mask_image_path="latentsync/utils/mask.png") -> torch.Tensor:
+def load_fixed_mask(
+    resolution: int, mask_image_path="latentsync/utils/mask.png"
+) -> torch.Tensor:
     mask_image = cv2.imread(mask_image_path)
     mask_image = cv2.cvtColor(mask_image, cv2.COLOR_BGR2RGB)
-    mask_image = cv2.resize(mask_image, (resolution, resolution), interpolation=cv2.INTER_LANCZOS4) / 255.0
+    mask_image = (
+        cv2.resize(
+            mask_image, (resolution, resolution), interpolation=cv2.INTER_LANCZOS4
+        )
+        / 255.0
+    )
     mask_image = rearrange(torch.from_numpy(mask_image), "h w c -> c h w")
     return mask_image
 
@@ -35,27 +42,123 @@ class ImageProcessor:
     def __init__(self, resolution: int = 512, device: str = "cpu", mask_image=None):
         self.resolution = resolution
         self.resize = transforms.Resize(
-            (resolution, resolution), interpolation=transforms.InterpolationMode.BICUBIC, antialias=True
+            (resolution, resolution),
+            interpolation=transforms.InterpolationMode.BICUBIC,
+            antialias=True,
         )
         self.normalize = transforms.Normalize([0.5], [0.5], inplace=True)
 
         self.restorer = AlignRestore(resolution=resolution, device=device)
-        self.previous_landmarks = np.array([
-                [388, 639], [205, 317], [241, 542], [254, 564], [270, 583], [288, 601], [309, 616], [332, 629],
-                [358, 637], [203, 343], [204, 368], [206, 393], [209, 418], [213, 443], [218, 469], [223, 494],
-                [231, 519], [558, 311], [528, 535], [516, 557], [501, 577], [484, 595], [464, 612], [442, 626],
-                [417, 635], [560, 336], [560, 362], [559, 387], [556, 412], [553, 437], [549, 462], [544, 487],
-                [537, 511], [302, 350], [304, 334], [270, 338], [284, 346], [322, 347], [304, 334], [339, 341],
-                [304, 321], [284, 326], [324, 327], [237, 302], [262, 292], [289, 287], [347, 298], [319, 290],
-                [257, 275], [288, 265], [350, 282], [322, 269], [322, 521], [387, 553], [353, 525], [338, 537],
-                [359, 549], [420, 523], [436, 534], [415, 547], [386, 527], [452, 517], [386, 514], [369, 495],
-                [343, 505], [332, 521], [354, 515], [401, 494], [429, 502], [442, 517], [419, 513], [385, 498],
-                [381, 330], [382, 363], [382, 395], [356, 343], [346, 412], [334, 441], [349, 451], [365, 455],
-                [383, 460], [407, 342], [420, 411], [432, 440], [418, 451], [402, 455], [382, 428], [461, 347],
-                [460, 332], [425, 341], [442, 345], [480, 343], [460, 332], [494, 335], [459, 319], [439, 325],
-                [479, 323], [414, 298], [442, 290], [471, 288], [498, 292], [525, 300], [412, 283], [439, 271],
-                [472, 267], [504, 276]
-            ])
+        self.previous_landmarks = np.array(
+            [
+                [388, 639],
+                [205, 317],
+                [241, 542],
+                [254, 564],
+                [270, 583],
+                [288, 601],
+                [309, 616],
+                [332, 629],
+                [358, 637],
+                [203, 343],
+                [204, 368],
+                [206, 393],
+                [209, 418],
+                [213, 443],
+                [218, 469],
+                [223, 494],
+                [231, 519],
+                [558, 311],
+                [528, 535],
+                [516, 557],
+                [501, 577],
+                [484, 595],
+                [464, 612],
+                [442, 626],
+                [417, 635],
+                [560, 336],
+                [560, 362],
+                [559, 387],
+                [556, 412],
+                [553, 437],
+                [549, 462],
+                [544, 487],
+                [537, 511],
+                [302, 350],
+                [304, 334],
+                [270, 338],
+                [284, 346],
+                [322, 347],
+                [304, 334],
+                [339, 341],
+                [304, 321],
+                [284, 326],
+                [324, 327],
+                [237, 302],
+                [262, 292],
+                [289, 287],
+                [347, 298],
+                [319, 290],
+                [257, 275],
+                [288, 265],
+                [350, 282],
+                [322, 269],
+                [322, 521],
+                [387, 553],
+                [353, 525],
+                [338, 537],
+                [359, 549],
+                [420, 523],
+                [436, 534],
+                [415, 547],
+                [386, 527],
+                [452, 517],
+                [386, 514],
+                [369, 495],
+                [343, 505],
+                [332, 521],
+                [354, 515],
+                [401, 494],
+                [429, 502],
+                [442, 517],
+                [419, 513],
+                [385, 498],
+                [381, 330],
+                [382, 363],
+                [382, 395],
+                [356, 343],
+                [346, 412],
+                [334, 441],
+                [349, 451],
+                [365, 455],
+                [383, 460],
+                [407, 342],
+                [420, 411],
+                [432, 440],
+                [418, 451],
+                [402, 455],
+                [382, 428],
+                [461, 347],
+                [460, 332],
+                [425, 341],
+                [442, 345],
+                [480, 343],
+                [460, 332],
+                [494, 335],
+                [459, 319],
+                [439, 325],
+                [479, 323],
+                [414, 298],
+                [442, 290],
+                [471, 288],
+                [498, 292],
+                [525, 300],
+                [412, 283],
+                [439, 271],
+                [472, 267],
+                [504, 276],
+            ]
+        )
 
         if mask_image is None:
             self.mask_image = load_fixed_mask(resolution)
@@ -67,28 +170,72 @@ class ImageProcessor:
         else:
             self.face_detector = FaceDetector(device=device)
 
-    def affine_transform(self, image: torch.Tensor) -> np.ndarray:
+    def calculate_face_angle(self, landmarks):
+        """
+        计算面部yaw角度（左右转头角度）
+        返回角度值，0度为正面，正值为向右转，负值为向左转
+        """
+        # 使用鼻子、左眼、右眼的关键点来计算角度
+        # 获取关键点
+        left_eye = np.mean(landmarks[[43, 48, 49, 51, 50]], axis=0)  # 左眼中心
+        right_eye = np.mean(landmarks[101:106], axis=0)  # 右眼中心
+        nose_tip = landmarks[86]  # 鼻尖
+
+        # 计算两眼中心点
+        eye_center = (left_eye + right_eye) / 2
+
+        # 计算鼻子相对于眼部中心的水平偏移
+        horizontal_offset = nose_tip[0] - eye_center[0]
+
+        # 计算两眼之间的距离
+        eye_distance = np.linalg.norm(right_eye - left_eye)
+
+        # 计算角度 (简化的估算)
+        # 正面时鼻子应该在两眼中心，偏移越大角度越大
+        angle = np.arctan2(horizontal_offset, eye_distance) * 180 / np.pi
+
+        return angle
+
+    def affine_transform(
+        self,
+        image: torch.Tensor,
+        angle_threshold: int = 15,
+    ) -> np.ndarray:
         if self.face_detector is None:
-            raise NotImplementedError("Using the CPU for face detection is not supported")
+            raise NotImplementedError(
+                "Using the CPU for face detection is not supported"
+            )
         bbox, landmark_2d_106 = self.face_detector(image)
         if bbox is None:
             landmark_2d_106 = self.previous_landmarks
             bbox = False
             print("Face not detected, using previous landmarks")
         else:
+            print("Face detected")
             self.previous_landmarks = landmark_2d_106
             bbox = True
-            print("Face detected")
+            if angle_threshold > 0:
+                angle = self.calculate_face_angle(landmarks=landmark_2d_106)
+                bbox = abs(angle) <= angle_threshold
 
-        pt_left_eye = np.mean(landmark_2d_106[[43, 48, 49, 51, 50]], axis=0)  # left eyebrow center
+                if bbox is True:
+                    print(f"Side face detected, angle: {angle:.1f}, ship inference..")
+
+        pt_left_eye = np.mean(
+            landmark_2d_106[[43, 48, 49, 51, 50]], axis=0
+        )  # left eyebrow center
         pt_right_eye = np.mean(landmark_2d_106[101:106], axis=0)  # right eyebrow center
         pt_nose = np.mean(landmark_2d_106[[74, 77, 83, 86]], axis=0)  # nose center
 
         landmarks3 = np.round([pt_left_eye, pt_right_eye, pt_nose])
 
-        face, affine_matrix = self.restorer.align_warp_face(image.copy(), landmarks3=landmarks3, smooth=True)
+        face, affine_matrix = self.restorer.align_warp_face(
+            image.copy(), landmarks3=landmarks3, smooth=True
+        )
         box = [0, 0, face.shape[1], face.shape[0]]  # x1, y1, x2, y2
-        face = cv2.resize(face, (self.resolution, self.resolution), interpolation=cv2.INTER_LANCZOS4)
+        face = cv2.resize(
+            face, (self.resolution, self.resolution), interpolation=cv2.INTER_LANCZOS4
+        )
         face = rearrange(torch.from_numpy(face), "h w c -> c h w")
         return bbox, face, box, affine_matrix
 
@@ -101,16 +248,25 @@ class ImageProcessor:
         masked_pixel_values = pixel_values * self.mask_image
         return pixel_values, masked_pixel_values, self.mask_image[0:1]
 
-    def prepare_masks_and_masked_images(self, images: Union[torch.Tensor, np.ndarray], affine_transform=False):
+    def prepare_masks_and_masked_images(
+        self, images: Union[torch.Tensor, np.ndarray], affine_transform=False
+    ):
         if isinstance(images, np.ndarray):
             images = torch.from_numpy(images)
         if images.shape[3] == 3:
             images = rearrange(images, "f h w c -> f c h w")
 
-        results = [self.preprocess_fixed_mask_image(image, affine_transform=affine_transform) for image in images]
+        results = [
+            self.preprocess_fixed_mask_image(image, affine_transform=affine_transform)
+            for image in images
+        ]
 
         pixel_values_list, masked_pixel_values_list, masks_list = list(zip(*results))
-        return torch.stack(pixel_values_list), torch.stack(masked_pixel_values_list), torch.stack(masks_list)
+        return (
+            torch.stack(pixel_values_list),
+            torch.stack(masked_pixel_values_list),
+            torch.stack(masks_list),
+        )
 
     def process_images(self, images: Union[torch.Tensor, np.ndarray]):
         if isinstance(images, np.ndarray):
